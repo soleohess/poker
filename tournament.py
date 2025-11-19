@@ -53,6 +53,7 @@ class TournamentTable:
         self.eliminated_players: List[str] = []
         self.hands_played = 0
         self.current_blind_level = 1
+        self.dealer_button: int = 0
         
         self.logger = logging.getLogger(f"tournament.table_{table_id}")
         

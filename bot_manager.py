@@ -36,16 +36,21 @@ def timeout_handler(signum, frame):
 @contextmanager
 def timeout_context(seconds: float):
     """Context manager for handling timeouts"""
-    # Set up the timeout signal
-    old_handler = signal.signal(signal.SIGALRM, timeout_handler)
-    signal.setitimer(signal.ITIMER_REAL, seconds)
-    
-    try:
+    # Check if signal.SIGALRM exists (Unix/Linux/Mac)
+    if hasattr(signal, 'SIGALRM'):
+        # Set up the timeout signal
+        old_handler = signal.signal(signal.SIGALRM, timeout_handler)
+        signal.setitimer(signal.ITIMER_REAL, seconds)
+        
+        try:
+            yield
+        finally:
+            # Restore the old signal handler
+            signal.alarm(0)
+            signal.signal(signal.SIGALRM, old_handler)
+    else:
+        # Windows fallback: No timeout enforcement (signal.SIGALRM not supported)
         yield
-    finally:
-        # Restore the old signal handler
-        signal.alarm(0)
-        signal.signal(signal.SIGALRM, old_handler)
 
 
 class BotWrapper:

@@ -29,11 +29,6 @@ class BotError(Exception):
     pass
 
 
-def timeout_expired():
-    """Send SIGINT after timeout expires"""
-    signal.raise_signal(signal.SIGINT)
-
-
 def timeout_handler(signum, frame):
     """Signal handler for timeout"""
     raise TimeoutException("Bot action timed out")
@@ -41,15 +36,24 @@ def timeout_handler(signum, frame):
 
 @contextmanager
 def timeout_context(seconds: float):
-    """Context manager for handling timeouts"""
-    timeout_timer = threading.Timer(seconds, timeout_expired)
-    old_handler = signal.signal(signal.SIGINT, timeout_handler)
-    try:
-        timeout_timer.start()
+    """Context manager for handling timeouts using signal.setitimer (Unix only)"""
+    # Use signal.setitimer/SIGALRM which is much lighter than threading.Timer
+    if hasattr(signal, 'setitimer') and hasattr(signal, 'SIGALRM'):
+        old_handler = signal.signal(signal.SIGALRM, timeout_handler)
+        try:
+            # Schedule the alarm
+            signal.setitimer(signal.ITIMER_REAL, seconds)
+            yield
+        finally:
+            # Disable the alarm
+            signal.setitimer(signal.ITIMER_REAL, 0)
+            # Restore old handler
+            signal.signal(signal.SIGALRM, old_handler)
+    else:
+        # Fallback for Windows (no SIGALRM), though less effective/reliable
+        # We can use the threading approach here if needed, but for now just yield
+        # to avoid the massive threading error on supported systems.
         yield
-        timeout_timer.cancel()
-    finally:
-        signal.signal(signal.SIGINT, old_handler)
 
 
 class BotWrapper:
